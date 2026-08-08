@@ -31,8 +31,7 @@ public class SleepListener implements CoreListenerInterface {
 
    public void handleEvent(Event event) {
       if (this.sleepManager != null) {
-         if (event instanceof PlayerBedEnterEvent) {
-            PlayerBedEnterEvent bedEnterEvent = (PlayerBedEnterEvent)event;
+         if (event instanceof PlayerBedEnterEvent bedEnterEvent) {
             if (bedEnterEvent.getBedEnterResult() != BedEnterResult.OK) {
                return;
             }
@@ -44,11 +43,9 @@ public class SleepListener implements CoreListenerInterface {
             }
 
             this.sleepManager.addSleepingPlayer(bedEnterEvent.getPlayer());
-         } else if (event instanceof PlayerBedLeaveEvent) {
-            PlayerBedLeaveEvent bedLeaveEvent = (PlayerBedLeaveEvent)event;
+         } else if (event instanceof PlayerBedLeaveEvent bedLeaveEvent) {
             this.sleepManager.removeSleepingPlayer(bedLeaveEvent.getPlayer());
          }
-
       }
    }
 

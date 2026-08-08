@@ -17,6 +17,15 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 
+/**
+ * Tracks who is in bed and skips the night when enough players sleep.
+ *
+ * <p>The requirement is either a fixed head count or a percentage of online
+ * players, per config. The skip is animated: a repeating task advances time
+ * in small steps until morning rather than jumping there. With the
+ * every-other-night restriction on, each skip disarms the next one until a
+ * new dusk arrives.
+ */
 @CoreManager(
    name = "SleepManager"
 )
@@ -24,7 +33,7 @@ public class SleepManager {
    private OnePlayerSleepPlus plugin;
    private FileConfiguration config;
    private FileConfiguration messages;
-   private final ConcurrentHashMap<UUID, Player> sleepingPlayers = new ConcurrentHashMap();
+   private final ConcurrentHashMap<UUID, Player> sleepingPlayers = new ConcurrentHashMap<>();
    private String sleepMode;
    private double sleepPercentage;
    private int fixedSleepers;
@@ -38,6 +47,9 @@ public class SleepManager {
    private float soundVolume;
    private float soundPitch;
    private boolean restrictEveryOtherNight;
+
+   // Armed state for the every-other-night restriction: cleared when a skip
+   // starts, re-armed by scheduleNightReset at the following dusk.
    private boolean canSkipNight = true;
    private BukkitRunnable actionBarTask;
    private BukkitRunnable timeSkipTask;
@@ -58,7 +70,7 @@ public class SleepManager {
 
    private void loadConfig() {
       this.sleepMode = this.config.getString("sleep_requirement.mode", "fixed").toLowerCase();
-      this.sleepPercentage = Math.max((double)1.0F, Math.min((double)100.0F, this.config.getDouble("sleep_requirement.percentage", (double)50.0F)));
+      this.sleepPercentage = Math.max(1.0, Math.min(100.0, this.config.getDouble("sleep_requirement.percentage", 50.0)));
       this.fixedSleepers = Math.max(1, this.config.getInt("sleep_requirement.fixed_players", 1));
       this.announceSleep = this.config.getBoolean("announce.enabled", true);
       this.showActionBar = this.config.getBoolean("action_bar.enabled", true);
@@ -67,8 +79,8 @@ public class SleepManager {
       this.particleCount = Math.max(1, this.config.getInt("time_skip_effects.particle_count", 5));
       this.soundEnabled = this.config.getBoolean("time_skip_effects.sound_enabled", true);
       this.soundType = this.config.getString("time_skip_effects.sound_type", "BLOCK_PORTAL_AMBIENT").toUpperCase();
-      this.soundVolume = (float)Math.max((double)0.0F, Math.min((double)1.0F, this.config.getDouble("time_skip_effects.sound_volume", (double)0.5F)));
-      this.soundPitch = (float)Math.max((double)0.5F, Math.min((double)2.0F, this.config.getDouble("time_skip_effects.sound_pitch", (double)1.0F)));
+      this.soundVolume = (float) Math.max(0.0, Math.min(1.0, this.config.getDouble("time_skip_effects.sound_volume", 0.5)));
+      this.soundPitch = (float) Math.max(0.5, Math.min(2.0, this.config.getDouble("time_skip_effects.sound_pitch", 1.0)));
       this.restrictEveryOtherNight = this.config.getBoolean("night_skip_restriction.every_other_night", true);
    }
 
@@ -92,7 +104,6 @@ public class SleepManager {
       } else {
          this.stopTimeSkip();
       }
-
    }
 
    public boolean canSkipNight() {
@@ -116,10 +127,9 @@ public class SleepManager {
                   message = message.replace("{progress}", String.valueOf(current)).replace("{time}", String.valueOf(needed));
                   message = ChatColor.translateAlternateColorCodes('&', message);
 
-                  for(Player player : SleepManager.this.plugin.getServer().getOnlinePlayers()) {
+                  for (Player player : SleepManager.this.plugin.getServer().getOnlinePlayers()) {
                      player.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent.fromLegacyText(message));
                   }
-
                }
             }
          }
@@ -132,12 +142,11 @@ public class SleepManager {
          this.actionBarTask.cancel();
          this.actionBarTask = null;
       }
-
    }
 
    private int getRequiredSleepers() {
       int onlinePlayers = this.plugin.getServer().getOnlinePlayers().size();
-      int required = this.sleepMode.equals("percentage") ? (int)Math.ceil((double)onlinePlayers * (this.sleepPercentage / (double)100.0F)) : this.fixedSleepers;
+      int required = this.sleepMode.equals("percentage") ? (int) Math.ceil(onlinePlayers * (this.sleepPercentage / 100.0)) : this.fixedSleepers;
       return Math.max(1, required);
    }
 
@@ -145,7 +154,7 @@ public class SleepManager {
       if (this.canSkipNight()) {
          boolean isNight = false;
 
-         for(World world : this.plugin.getServer().getWorlds()) {
+         for (World world : this.plugin.getServer().getWorlds()) {
             if (world.getEnvironment() == Environment.NORMAL && world.getTime() > 12000L) {
                isNight = true;
                break;
@@ -158,7 +167,6 @@ public class SleepManager {
             if (current >= needed) {
                this.startTimeSkip();
             }
-
          }
       }
    }
@@ -172,39 +180,41 @@ public class SleepManager {
          this.canSkipNight = false;
       }
 
+      // Advances time by timeIncrement each server tick until morning is
+      // reached, or forces morning after maxTicks as a stop against worlds
+      // whose time is being moved by something else concurrently.
       this.timeSkipTask = new BukkitRunnable() {
          int ticks = 0;
          final int maxTicks = 100;
          final long targetTime = 0L;
          final long timeIncrement = 120L;
-         final int soundInterval = 30;
+         final int soundInterval = 30; // ticks between ambient sound plays
 
          public void run() {
-            for(World world : SleepManager.this.plugin.getServer().getWorlds()) {
+            for (World world : SleepManager.this.plugin.getServer().getWorlds()) {
                if (world.getEnvironment() == Environment.NORMAL) {
-                  long currentTime = world.getTime();
-                  long newTime = currentTime + 120L;
+                  long newTime = world.getTime() + this.timeIncrement;
                   if (newTime >= 24000L) {
                      newTime %= 24000L;
                   }
 
                   world.setTime(newTime);
 
-                  for(Player player : SleepManager.this.sleepingPlayers.values()) {
+                  for (Player player : SleepManager.this.sleepingPlayers.values()) {
                      Location bedLocation = player.getBedSpawnLocation() != null ? player.getBedSpawnLocation() : player.getLocation();
                      if (SleepManager.this.particlesEnabled) {
                         try {
-                           world.spawnParticle(Particle.valueOf(SleepManager.this.particleType), bedLocation.clone().add((double)0.0F, (double)1.0F, (double)0.0F), SleepManager.this.particleCount, (double)0.5F, (double)0.5F, (double)0.5F, 0.05);
-                        } catch (IllegalArgumentException var12) {
+                           world.spawnParticle(Particle.valueOf(SleepManager.this.particleType), bedLocation.clone().add(0.0, 1.0, 0.0), SleepManager.this.particleCount, 0.5, 0.5, 0.5, 0.05);
+                        } catch (IllegalArgumentException e) {
                            SleepManager.this.plugin.getLogger().warning("Invalid particle type: " + SleepManager.this.particleType + ", using PORTAL");
                            SleepManager.this.particleType = "PORTAL";
                         }
                      }
 
-                     if (SleepManager.this.soundEnabled && this.ticks % 30 == 0) {
+                     if (SleepManager.this.soundEnabled && this.ticks % this.soundInterval == 0) {
                         try {
                            world.playSound(bedLocation, Sound.valueOf(SleepManager.this.soundType), SleepManager.this.soundVolume, SleepManager.this.soundPitch);
-                        } catch (IllegalArgumentException var11) {
+                        } catch (IllegalArgumentException e) {
                            SleepManager.this.plugin.getLogger().warning("Invalid sound type: " + SleepManager.this.soundType + ", using BLOCK_PORTAL_AMBIENT");
                            SleepManager.this.soundType = "BLOCK_PORTAL_AMBIENT";
                         }
@@ -212,7 +222,7 @@ public class SleepManager {
                   }
 
                   if (world.getTime() < 1000L || world.getTime() > 23000L) {
-                     world.setTime(0L);
+                     world.setTime(this.targetTime);
                      world.setStorm(false);
                      if (SleepManager.this.announceSleep) {
                         MessageUtils.broadcast(SleepManager.this.plugin, SleepManager.this.messages, "night_skipped");
@@ -226,10 +236,10 @@ public class SleepManager {
             }
 
             ++this.ticks;
-            if (this.ticks >= 100) {
-               for(World world : SleepManager.this.plugin.getServer().getWorlds()) {
+            if (this.ticks >= this.maxTicks) {
+               for (World world : SleepManager.this.plugin.getServer().getWorlds()) {
                   if (world.getEnvironment() == Environment.NORMAL) {
-                     world.setTime(0L);
+                     world.setTime(this.targetTime);
                      world.setStorm(false);
                   }
                }
@@ -242,23 +252,23 @@ public class SleepManager {
                SleepManager.this.stopTimeSkip();
                SleepManager.this.scheduleNightReset();
             }
-
          }
       };
       this.timeSkipTask.runTaskTimer(this.plugin, 0L, 1L);
    }
 
+   // Re-arms the every-other-night restriction: polls until a world reaches
+   // dusk with no skip in progress, then allows the next skip and stops.
    private void scheduleNightReset() {
       if (this.restrictEveryOtherNight) {
          (new BukkitRunnable() {
             public void run() {
-               for(World world : SleepManager.this.plugin.getServer().getWorlds()) {
+               for (World world : SleepManager.this.plugin.getServer().getWorlds()) {
                   if (world.getEnvironment() == Environment.NORMAL && world.getTime() > 13000L && world.getTime() < 14000L && SleepManager.this.timeSkipTask == null) {
                      SleepManager.this.canSkipNight = true;
                      this.cancel();
                   }
                }
-
             }
          }).runTaskTimer(this.plugin, 0L, 200L);
       }
@@ -269,6 +279,5 @@ public class SleepManager {
          this.timeSkipTask.cancel();
          this.timeSkipTask = null;
       }
-
    }
 }
