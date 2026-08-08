@@ -13,8 +13,8 @@ Published on Spigot: <https://www.spigotmc.org/resources/124265/>
 
 ## Requirements
 
-- Paper or Spigot 1.21+
-- Java 21
+- Paper or Spigot, Minecraft 1.21 through 26.2
+- Java 21 or newer
 
 ## Installation
 

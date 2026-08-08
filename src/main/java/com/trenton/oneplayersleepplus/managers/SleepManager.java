@@ -5,8 +5,6 @@ import com.trenton.coreapi.annotations.CoreManager;
 import com.trenton.coreapi.util.MessageUtils;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import net.md_5.bungee.api.ChatMessageType;
-import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Particle;
@@ -128,7 +126,7 @@ public class SleepManager {
                   message = ChatColor.translateAlternateColorCodes('&', message);
 
                   for (Player player : SleepManager.this.plugin.getServer().getOnlinePlayers()) {
-                     player.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent.fromLegacyText(message));
+                     MessageUtils.sendActionBarText(player, message);
                   }
                }
             }
@@ -201,7 +199,7 @@ public class SleepManager {
                   world.setTime(newTime);
 
                   for (Player player : SleepManager.this.sleepingPlayers.values()) {
-                     Location bedLocation = player.getBedSpawnLocation() != null ? player.getBedSpawnLocation() : player.getLocation();
+                     Location bedLocation = player.getRespawnLocation() != null ? player.getRespawnLocation() : player.getLocation();
                      if (SleepManager.this.particlesEnabled) {
                         try {
                            world.spawnParticle(Particle.valueOf(SleepManager.this.particleType), bedLocation.clone().add(0.0, 1.0, 0.0), SleepManager.this.particleCount, 0.5, 0.5, 0.5, 0.05);

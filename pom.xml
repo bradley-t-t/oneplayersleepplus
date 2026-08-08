@@ -6,13 +6,14 @@
 
     <groupId>com.trenton</groupId>
     <artifactId>OnePlayerSleepPlus</artifactId>
-    <version>1.1</version>
+    <version>1.2</version>
     <packaging>jar</packaging>
 
     <name>OnePlayerSleepPlus</name>
 
     <properties>
         <java.version>21</java.version>
+        <paper.api.version>1.21.5-R0.1-SNAPSHOT</paper.api.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
@@ -94,13 +95,13 @@
         <dependency>
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
-            <version>1.21.5-R0.1-SNAPSHOT</version>
+            <version>${paper.api.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.trenton</groupId>
             <artifactId>CoreAPI</artifactId>
-            <version>1.0.0</version>
+            <version>1.1.0</version>
             <scope>compile</scope>
         </dependency>
         <dependency>
