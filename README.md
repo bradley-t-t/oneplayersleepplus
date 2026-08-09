@@ -1,55 +1,96 @@
-# OnePlayerSleep+
+<h1 align="center">OnePlayerSleep+</h1>
 
-A Paper/Spigot plugin that skips the night when enough players sleep, instead
-of requiring everyone in bed.
+<p align="center">
+  <b>Skip the night when enough players sleep, instead of when every last one does.</b>
+</p>
+<p align="center">
+  Set the bar as a fixed number of sleepers or a share of the players online. Time then rolls<br />
+  to morning rather than snapping, with an action bar showing how close the server is.
+</p>
 
-The requirement is either a fixed number of sleepers or a percentage of online
-players. When it is met, time advances smoothly to morning with particle and
-sound effects at each sleeper's bed, and an action bar shows progress toward
-the requirement while anyone is in bed. An optional restriction limits skips
-to every other night.
+<p align="center">
+  <img src="https://img.shields.io/badge/version-1.2-0a0a0b?style=for-the-badge" alt="Version 1.2" />
+  <img src="https://img.shields.io/badge/Java-21-0a0a0b?style=for-the-badge&logo=openjdk&logoColor=white" alt="Java 21" />
+  <img src="https://img.shields.io/badge/Paper-1.21.5_API-0a0a0b?style=for-the-badge" alt="Paper 1.21.5 API" />
+  <img src="https://img.shields.io/badge/Maven-shaded-0a0a0b?style=for-the-badge&logo=apachemaven&logoColor=white" alt="Maven, shaded" />
+  <img src="https://img.shields.io/badge/SpigotMC-124265-4a4a4f?style=for-the-badge" alt="SpigotMC resource 124265" />
+</p>
 
-Published on Spigot: <https://www.spigotmc.org/resources/124265/>
+<br />
+
+## Why OnePlayerSleep+
+
+Vanilla ties the night to a percentage nobody can see, so a server spends it guessing: are we close, is somebody asleep at the keyboard in a cave, has this already failed. The usual fix swings the other way and lets one player end the night for everybody, which is its own kind of annoying on a busy server. OnePlayerSleep+ puts the threshold where the owner wants it, shows the count while people are in bed so the room knows whether it is worth getting up for, and moves time forward gradually so the skip reads as dawn rather than a jump cut.
+
+<table width="100%">
+  <tr>
+    <td width="50%" valign="top">
+      <h3 align="center">A threshold you can see</h3>
+      <p align="center">While anyone is in bed the action bar carries progress toward the requirement, so nobody has to guess whether one more sleeper would do it.</p>
+    </td>
+    <td width="50%" valign="top">
+      <h3 align="center">Morning arrives, it does not cut</h3>
+      <p align="center">Time advances smoothly to sunrise with particles and sound at each sleeper's bed, and an optional restriction holds skips to every other night.</p>
+    </td>
+  </tr>
+</table>
+
+<br />
+
+## Stack
+
+| Layer | Technology |
+| :--- | :--- |
+| Language | Java 21 bytecode |
+| Server API | paper-api 1.21.5 (`api-version: 1.21`) |
+| Build | Maven with `maven-shade-plugin` |
+| Bundled | CoreAPI 1.1.0, UpdaterAPI 1.0.0, bStats 3.0.2 |
 
 ## Requirements
 
 - Paper or Spigot, Minecraft 1.21 through 26.2
 - Java 21 or newer
 
-## Installation
+## Getting started
 
-Drop the jar into your server's `plugins` folder and restart. The plugin
-writes `config.yml` and `messages.yml` into `plugins/OnePlayerSleepPlus/` on
-first start.
+Drop the jar into your server's `plugins` folder and restart. The plugin writes `config.yml` and `messages.yml` into `plugins/OnePlayerSleepPlus/` on first start.
+
+Published on Spigot: <https://www.spigotmc.org/resources/124265/>
 
 ## Configuration
 
-`config.yml`:
+| Key | Does |
+| :--- | :--- |
+| `sleep_requirement.mode` | `fixed` or `percentage`. |
+| `sleep_requirement.fixed_players` | Sleepers needed in `fixed` mode. |
+| `sleep_requirement.percentage` | Share of online players needed in `percentage` mode. |
+| `announce.enabled` | Broadcast a message when the night is skipped. |
+| `action_bar.enabled` | Show sleep progress in the action bar. |
+| `time_skip_effects` | Particle and sound shown during the skip. |
+| `night_skip_restriction.every_other_night` | Allow skipping only every other night. |
+| `auto_updater.enabled` | Check for new versions on startup and install them at shutdown. |
 
-- `sleep_requirement.mode` — `fixed` or `percentage`.
-- `sleep_requirement.fixed_players` — sleepers needed in `fixed` mode.
-- `sleep_requirement.percentage` — share of online players needed in
-  `percentage` mode.
-- `announce.enabled` — broadcast a message when the night is skipped.
-- `action_bar.enabled` — show sleep progress in the action bar.
-- `time_skip_effects` — particle and sound shown during the skip.
-- `night_skip_restriction.every_other_night` — allow skipping only every
-  other night.
-- `auto_updater.enabled` — check for new versions on startup and download
-  them for install at shutdown.
-
-All player-facing text lives in `messages.yml` and supports `&` color codes.
-Removing a message disables it.
+All player-facing text lives in `messages.yml` and supports `&` color codes. Removing a message disables it.
 
 ## Permissions
 
-- `oneplayersleepplus.update.notify` — receive update notifications
-  (default: op).
+| Node | Default | Grants |
+| :--- | :--- | :--- |
+| `oneplayersleepplus.update.notify` | op | Receive update notifications. |
+
+## Project structure
+
+```
+oneplayersleepplus/
+└── src/main/java/com/trenton/oneplayersleepplus/
+    ├── OnePlayerSleepPlus.java        Plugin entry and CoreAPI bootstrap
+    ├── managers/SleepManager.java     Threshold maths, gradual time skip, effects
+    └── listeners/SleepListener.java   Bed enter and leave, action bar progress
+```
 
 ## Building
 
-The plugin depends on two libraries that install to your local Maven
-repository:
+The plugin depends on two libraries that install to your local Maven repository:
 
 ```bash
 git clone https://github.com/bradley-t-t/coreapi && mvn -f coreapi install
@@ -63,3 +104,9 @@ mvn package
 ```
 
 The shaded jar lands in `target/`.
+
+<br />
+
+<p align="center">
+  <sub>Enough people are asleep. That should be enough.</sub>
+</p>
