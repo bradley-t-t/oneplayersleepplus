@@ -78,6 +78,29 @@ All player-facing text lives in `messages.yml` and supports `&` color codes. Rem
 | :--- | :--- | :--- |
 | `oneplayersleepplus.update.notify` | op | Receive update notifications. |
 
+## Architecture
+
+```mermaid
+flowchart TD
+    Bed["Player enters a bed"] --> Ev["PlayerBedEnterEvent"]
+    Ev --> SM["SleepManager — tracks who is in bed"]
+    SM --> Bar["Action bar shows progress toward the requirement"]
+    SM --> Th{"Threshold met?"}
+    Th -->|"percentage or fixed count, per config"| Gate{"Allowed to skip tonight?"}
+    Gate -->|"every-other-night restriction"| Wait["Night runs its course"]
+    Gate -->|"yes"| Skip["Time advances gradually to sunrise"]
+    Skip --> FX["Particles and sound at each sleeper's bed"]
+    Leave["Player leaves the bed"] --> SM
+```
+
+## How it works
+
+- **The threshold is visible while it matters.** An action bar task runs only while somebody is in bed, carrying the count toward the requirement, so the room can tell whether one more sleeper would finish it.
+- **Two ways to set the bar.** `sleepMode` picks between a percentage of players online and a fixed number of sleepers, so a two-person server and a fifty-person server can both land somewhere sensible.
+- **Morning arrives rather than cuts.** Time is advanced in steps to sunrise instead of set in one write, which is what makes the skip read as dawn breaking; particles and sound fire at each sleeper's bed as it runs.
+- **Skips can be rationed.** The optional every-other-night restriction holds a successful skip and refuses the next one, so a server that wants some nights to actually happen keeps them.
+- **Sleepers are tracked by UUID in a concurrent map**, so a player who disconnects in bed stops counting toward the threshold the moment the bed-leave fires.
+
 ## Project structure
 
 ```
@@ -104,6 +127,10 @@ mvn package
 ```
 
 The shaded jar lands in `target/`.
+
+## License
+
+Copyright (c) 2026 Trenton Taylor. All rights reserved.
 
 <br />
 
